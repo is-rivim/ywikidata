@@ -1,0 +1,123 @@
+<!DOCTYPE HTML>
+<html>
+    <head> 
+        <title>Yawidata</title> 
+        <meta http-equiv="Content-Type" content="text/html; charset=UTF-8" />
+        <script src="http://api-maps.yandex.ru/2.1/?lang=ru_RU" type="text/javascript"></script>
+        <script src="//code.jquery.com/jquery-1.11.0.min.js"></script>
+        <link rel="stylesheet" href="//code.jquery.com/ui/1.11.2/themes/smoothness/jquery-ui.css">
+        <script src="//code.jquery.com/jquery-1.10.2.js"></script>
+        <script src="//code.jquery.com/ui/1.11.2/jquery-ui.js"></script>
+        <script src="http://ajax.aspnetcdn.com/ajax/jquery.validate/1.13.1/jquery.validate.min.js"></script>
+        <script type="text/javascript">
+            "use strict";
+            ymaps.ready(init);
+            var myMap;
+            var long1;
+            var long2;
+            var lat1;
+            var lat2;
+            var clusterer;
+            var currentLangOfDescription = "ru";
+            function init() {
+                myMap = new ymaps.Map("map", {
+                    center: [50.27, 30.31],
+                    zoom: 10
+                });
+                clusterer = new ymaps.Clusterer({clusterDisableClickZoom: true});
+
+                $("#slider").slider({max: 2000, min: 500, step: 1, value: 1960, slide: function(event, ui) {
+                        $("#yearOfBirth").val((ui.value));
+                    }});
+
+                $("#radioLangs").buttonset();
+                $("#radioEn").click(function() {
+                    currentLangOfDescription = "en";
+                });
+                $("#radioRu").click(function() {
+                    currentLangOfDescription = "ru";
+                });
+                $("#slider").css({width: 500});
+                $('button').button();
+                $("#showAllPlaces").click(function(event) {
+                    getAllPlacesByGeoQuad();
+                });
+                $("#showAllPersons").click(function(event) {
+                    getPeoplesByYearOfBirthByGeoQuad();
+                });
+            }
+
+            function getAllPlacesByGeoQuad() {
+                initializeGeoQuad();
+                var queryPlaces = jQuery.validator.format("&query=PREFIX+geo%3A+<http%3A%2F%2Fwww.w3.org%2F2003%2F01%2Fgeo%2Fwgs84_pos%23>%0D%0ASELECT+%3Fsubject+%3Flat+%3Flong+%3FprimaryTopic+%3Fdescription+%3Flabel+%3Fpict+WHERE+{%0D%0A%3Fsubject+geo%3Alat+%3Flat.%0D%0A%3Fsubject+geo%3Along+%3Flong.%0D%0A%3FprimaryTopic+foaf%3AprimaryTopic+%3Fsubject.%0D%0A%3Fsubject+rdfs%3Alabel+%3Flabel.%0D%0A%3Fsubject+rdfs%3Acomment+%3Fdescription.%0D%0A%3Fsubject+foaf%3Adepiction+%3Fpict.%0D%0AFILTER(LANG(%3Fdescription)+%3D+'{0}'+%26%26+LANG(%3Flabel)+%3D+'{1}'+%26%26+%3Flat+>+{2}+%26%26+%3Flat+<%3D+{3}+%26%26%0D%0A%3Flong+>+{4}+%26%26+%3Flong+<%3D+{5})}");
+                var getQuery = jQuery.validator.format("http://dbpedia.org/sparql?default-graph-uri=http%3A%2F%2Fdbpedia.org{0}&debug=on{0}&timeout=&format=application%2Fsparql-results%2Bjson&save=display&fname=");
+                var getq = getQuery(queryPlaces(currentLangOfDescription, currentLangOfDescription, lat1, lat2, long1, long2));
+                console.log(getq);
+                $.getJSON(getq,
+                        {},
+                        function(data) {
+                            renderResult(data);
+                        });
+
+            }
+            function getPeoplesByYearOfBirthByGeoQuad() {
+                initializeGeoQuad();
+                var queryPeople = jQuery.validator.format("&query=PREFIX+dbo%3A+<http%3A%2F%2Fdbpedia.org%2Fontology%2F>%0D%0ASELECT+DISTINCT+%3FprimaryTopic++%3Fbirth+%3Flat+%3Flong+%3Flabel+%3Fdescription+%3Fpict++WHERE+{%0D%0A+++++%3Fperson+dbo%3AbirthPlace+%3Fbirthplace.%0D%0A+++++%3Fbirthplace+geo%3Alat+%3Flat.%0D%0A+++++%3Fbirthplace+geo%3Along+%3Flong.%0D%0A+++++%3Fperson+dbo%3AbirthDate+%3Fbirth+.%0D%0A+++++%3Fperson+rdfs%3Alabel+%3Flabel.%0D%0A+++++%3Fperson+rdfs%3Acomment+%3Fdescription.%0D%0A+++++%3FprimaryTopic+foaf%3AprimaryTopic+%3Fperson.%0D%0A+++++%3Fperson+foaf%3Adepiction+%3Fpict%0D%0A+++++FILTER+(LANG(%3Fdescription)+%3D+'{0}'+%26%26+LANG(%3Flabel)+%3D+'{1}'+%26%26+%3Fbirth+<+\"{2}-01-01\"^^xsd%3Adate+%26%26+%3Flat+>%3D++{3}+%26%26+%3Flat+<%3D+{4}+%26%26%0D%0A%3Flong+>%3D++{5}+%26%26+%3Flong+<%3D+{6})%0D%0A}");
+                var getQuery = jQuery.validator.format("http://dbpedia.org/sparql?default-graph-uri=http%3A%2F%2Fdbpedia.org{0}&debug=on{0}&timeout=&format=application%2Fsparql-results%2Bjson&save=display&fname=");
+                var getq = getQuery(queryPeople(currentLangOfDescription, currentLangOfDescription, $("#yearOfBirth").val(), lat1, lat2, long1, long2));
+                console.log(getq);
+                $.getJSON(getq,
+                        {},
+                        function(data) {
+                            renderResult(data);
+                        });
+            }
+            function initializeGeoQuad() {
+                long1 = myMap.getBounds()[0][1];
+                long2 = myMap.getBounds()[1][1];
+                lat1 = myMap.getBounds()[0][0];
+                lat2 = myMap.getBounds()[1][0];
+            }
+            function renderResult(data) {
+                var myGeoObjects = [];
+                $.each(data.results.bindings, function(index, value) {
+
+                    console.log(index + ": " + JSON.stringify(value));
+                    myGeoObjects[index] = new ymaps.GeoObject({
+                        geometry: {type: "Point", coordinates: [value.lat.value, value.long.value]},
+                        properties: {
+                            clusterCaption: '<a>' + value.label.value + '</a>',
+                            balloonContentBody: '<img src="' + value.pict.value + '?width=300"><br/> <a href="' + value.primaryTopic.value + '" target="_blank">' + value.description.value + '</a>',
+                        }
+                    });
+                });
+                clusterer.add(myGeoObjects);
+                myMap.geoObjects.add(clusterer);
+            }
+        </script>
+    </head>
+    <body>
+        <div>
+            <div id="radioLangs">
+                <label>I want to use next lang: </label>
+                <input type="radio" id="radioEn" name="radio"><label for="radioEn">English</label>
+                <input type="radio" id="radioRu" name="radio" checked="checked"><label for="radioRu">Russian</label>
+            </div>
+            <div>
+                <label for="showAllPlaces">I want to find next places (from Wikidata)  </label><br>
+                <button id="showAllPlaces">Show all places</button>
+            </div>
+
+            <div>Or I want to find peophe that born before this year(slider)</div>
+            <div id="slider"></div>
+
+            <label for="yearOfBirth">Person's year of birth:</label>
+            <input type="text" id="yearOfBirth" value="1960" readonly style="border:0; font-weight:bold;"/>
+
+        </div>
+        <div>
+            <button id="showAllPersons">Show all persons</button></div>
+
+        <div id="map" style="width: 600px; height: 600px"></div> 
+    </body>
+</html>
